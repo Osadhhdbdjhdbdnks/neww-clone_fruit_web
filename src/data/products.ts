@@ -9,6 +9,9 @@ export type Product = {
   siteSlug: string;
   name: string;
   image: string;
+  /** Horizontally reversed view of the same fruit — cross-faded in while the
+   * slider spins the item in 3D so the "back side" reads correctly. */
+  sideImage: string;
   category: ProductCategory;
 };
 
@@ -20,7 +23,7 @@ export type Product = {
  * The set is repeated twice so the slider keeps a dense marquee feel and the
  * loop wraps seamlessly (same fruit images reused, no invented variants).
  */
-const tropical: Omit<Product, "image">[] = [
+const tropical: Omit<Product, "image" | "sideImage">[] = [
   { slug: "papaya", siteSlug: "papaya", name: "Papaya", category: "jams" },
   { slug: "melone", siteSlug: "melone", name: "Melon", category: "jams" },
   { slug: "canna-zucchero", siteSlug: "canna_zucchero", name: "Sugarcane", category: "creams" },
@@ -29,11 +32,14 @@ const tropical: Omit<Product, "image">[] = [
 ];
 
 const fruitImg = (slug: string) => `/assets/agrumea/fruit-${slug}.webp`;
+/** Reversed "back side" view used during the hover spin. */
+const fruitSideImg = (slug: string) => `/assets/agrumea/fruit-${slug}-side.webp`;
 
 /** Unique products (used by the pantry grid and product pages). */
 export const products: Product[] = tropical.map((p) => ({
   ...p,
   image: fruitImg(p.slug),
+  sideImage: fruitSideImg(p.slug),
 }));
 
 /** Slider list: the five fruits repeated twice for a seamless, dense marquee. */

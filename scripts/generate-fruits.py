@@ -5,11 +5,23 @@ No jars, no glass, no lids, no paper labels: each asset is the fruit itself —
 papaya, cantaloupe melon, sugarcane, rambutan and dragon fruit — drawn as a
 botanically recognisable, softly shaded composition on a transparent canvas.
 
-Output matches the slider's geometry expectations:
+Each fruit is rendered TWICE:
+  1. fruit-<slug>.webp          — front view (canvas 1080 x 1737, art box
+     aspect 630/1013 like the original site's jar images). This is what the
+     slider shows at rest and while tilting/parallaxing with the pointer.
+  2. fruit-<slug>-side.webp     — the SAME composition horizontally reversed
+     (aspects swapped left<->right, stems slanting the other way), standing
+     for the fruit's back side. The slider cross-fades base -> side during the
+     hover spin, so when rotateY passes 90° and the front image would show its
+     mirrored backface, we are already displaying the reversed view. Combined
+     with a width squeeze that follows |cos(turn)| this reads as a genuine
+     3D rotation of the real fruit (no jars involved).
+
+Canvas geometry expected by the slider:
   - canvas 1080 x 1737 (aspect = ASPECT constant in jar-slider.tsx)
   - content sits inside a centred box of aspect 630/1013 (the same box the
     original site's jar images used), so slot sizing / parallax stay intact
-  - transparent WebP, saved to public/assets/agrumea/fruit-<slug>.webp
+  - transparent WebP, saved to public/assets/agrumea/fruit-<slug>[-side].webp
 
 Run:  python3 scripts/generate-fruits.py
 Requires: pip install pillow
@@ -19,10 +31,44 @@ import random
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
-W, H = 1080, 1737
+SS = 2  # supersampling factor for crisp fruit edges
+BASE_W, BASE_H = 1080, 1737
+W, H = BASE_W * SS, BASE_H * SS
 CX, CY = W // 2, H // 2
-BOX_W, BOX_H = 995, 1600  # centred art box (same footprint as old jar assets)
+DCX, DCY = BASE_W // 2, BASE_H // 2  # design-space centre used by the builders
+BOX_W, BOX_H = 995 * SS, 1600 * SS  # centred art box (footprint of old jar assets)
 OUT_DIR = "public/assets/agrumea"
+
+
+class ScaledDraw:
+    """ImageDraw wrapper that multiplies every coordinate by SS so the fruit
+    builders can keep their original 1080x1737 design space while rendering
+    onto the supersampled canvas."""
+
+    def __init__(self, draw):
+        self._d = draw
+
+    def _xy(self, xy):
+        return [(p[0] * SS, p[1] * SS) for p in xy]
+
+    def ellipse(self, bbox, **kw):
+        self._d.ellipse([bbox[0] * SS, bbox[1] * SS, bbox[2] * SS, bbox[3] * SS], **kw)
+
+    def polygon(self, pts, **kw):
+        self._d.polygon(self._xy(pts), **kw)
+
+    def line(self, pts, **kw):
+        if "width" in kw:
+            kw["width"] = kw["width"] * SS
+        self._d.line(self._xy(pts), **kw)
+
+    def pieslice(self, bbox, start, end, **kw):
+        self._d.pieslice([bbox[0] * SS, bbox[1] * SS, bbox[2] * SS, bbox[3] * SS], start, end, **kw)
+
+    def arc(self, bbox, start, end, **kw):
+        if "width" in kw:
+            kw["width"] = kw["width"] * SS
+        self._d.arc([bbox[0] * SS, bbox[1] * SS, bbox[2] * SS, bbox[3] * SS], start, end, **kw)
 
 FRUITS = {
     "papaya": ((240, 165, 62), (196, 104, 26)),
@@ -45,14 +91,14 @@ def shade(d, bbox, hi, lo):
 def draw_papaya(d, rnd):
     c1, c2 = FRUITS["papaya"]
     # whole fruit behind (left), with stem
-    wx, wy, rw, rh = CX - 250, CY + 60, 175, 330
+    wx, wy, rw, rh = DCX - 250, DCY + 60, 175, 330
     d.ellipse([wx - rw, wy - rh, wx + rw, wy + rh], fill=c2)
     d.ellipse([wx - rw + 26, wy - rh + 30, wx + rw - 34, wy + rh - 40], fill=c1)
     d.ellipse([wx - rw + 60, wy - rh + 70, wx - 20, wy - 40], fill=(252, 205, 110))
     d.polygon([(wx - 14, wy - rh + 6), (wx + 20, wy - rh - 66), (wx + 34, wy - rh - 60), (wx + 6, wy - rh + 12)], fill=(92, 128, 58))
 
     # front longitudinal half showing seed cavity
-    fx, fy, fw, fh = CX + 90, CY + 40, 235, 480
+    fx, fy, fw, fh = DCX + 90, DCY + 40, 235, 480
     d.ellipse([fx - fw, fy - fh, fx + fw, fy + fh], fill=(176, 92, 22))
     d.ellipse([fx - fw + 16, fy - fh + 18, fx + fw - 16, fy + fh - 18], fill=c1)
     d.ellipse([fx - fw + 46, fy - fh + 60, fx + fw - 60, fy + fh - 60], fill=(250, 196, 96))
@@ -73,14 +119,14 @@ def draw_papaya(d, rnd):
 
 def draw_melone(d, rnd):
     c1, c2 = FRUITS["melone"]
-    mx, my, r = CX - 90, CY + 40, 380
+    mx, my, r = BASE_W // 2 - 90, BASE_H // 2 + 40, 380
     # netted cantaloupe sphere
     d.ellipse([mx - r, my - r, mx + r, my + r], fill=(150, 168, 84))
     d.ellipse([mx - r + 14, my - r + 14, mx + r - 14, my + r - 14], fill=(206, 190, 108))
     d.ellipse([mx - r + 70, my - r + 60, mx + 40, my - 60], fill=(236, 220, 140))
     # netting: crosshatched arcs clipped to the ball
     net = new_canvas()
-    nd = ImageDraw.Draw(net)
+    nd = ScaledDraw(ImageDraw.Draw(net))
     for i in range(-6, 7):
         off = i * 62
         nd.arc([mx - r + abs(off), my - r, mx + r + abs(off) * 0, my + r] if False else [mx - r, my - r + off - 40, mx + r, my + r + off - 40], 180, 360, fill=(172, 156, 84), width=6)
@@ -89,7 +135,7 @@ def draw_melone(d, rnd):
         nd.line([(mx - r, my + k * 46), (mx + r, my + k * 46 + 60)], fill=(186, 170, 96), width=5)
         nd.line([(mx + k * 46, my - r), (mx + k * 46 + 60, my + r)], fill=(186, 170, 96), width=5)
     mask = new_canvas()
-    ImageDraw.Draw(mask).ellipse([mx - r + 6, my - r + 6, mx + r - 6, my + r - 6], fill=(255, 255, 255, 255))
+    ImageDraw.Draw(mask).ellipse([(mx - r + 6) * SS, (my - r + 6) * SS, (mx + r - 6) * SS, (my + r - 6) * SS], fill=(255, 255, 255, 255))
     net.putalpha(ImageChops.multiply(net.split()[3], mask.split()[3]))
     return net  # composited by caller
 
@@ -105,8 +151,8 @@ def draw_sugarcane(d, rnd):
     c1, c2 = FRUITS["canna-zucchero"]
     stalks = [(-300, 620, -7), (-160, 760, -3), (0, 830, 0), (160, 740, 4), (300, 600, 8)]
     for sx, ln, tilt in stalks:
-        bx = CX + sx
-        base_y = CY + 560
+        bx = DCX + sx
+        base_y = DCY + 560
         top_y = base_y - ln
         dx = tilt * 9
         seg = 118
@@ -131,7 +177,7 @@ def draw_sugarcane(d, rnd):
         draw_cane_leaf(d, tx, ty, 340, 96, (78, 130, 54))
         draw_cane_leaf(d, tx, ty, 260, 128, (110, 160, 74))
     # cut chunk in front
-    qx, qy = CX + 40, CY + 470
+    qx, qy = DCX + 40, DCY + 470
     d.ellipse([qx - 150, qy - 60, qx + 150, qy + 60], fill=(96, 132, 62))
     d.ellipse([qx - 138, qy - 50, qx + 138, qy + 50], fill=(232, 240, 200))
     d.ellipse([qx - 118, qy - 36, qx + 118, qy + 36], fill=(246, 250, 222))
@@ -142,9 +188,9 @@ def draw_sugarcane(d, rnd):
 
 def draw_rambutan(d, rnd):
     c1, c2 = FRUITS["rambutan"]
-    spots = [(-235, CY - 250, 150), (60, CY - 330, 165), (255, CY - 40, 140), (-120, CY + 120, 185), (150, CY + 330, 130), (-280, CY + 350, 115)]
+    spots = [(-235, DCY - 250, 150), (60, DCY - 330, 165), (255, DCY - 40, 140), (-120, DCY + 120, 185), (150, DCY + 330, 130), (-280, DCY + 350, 115)]
     for sx, sy, r in spots:
-        cx_, cy_ = CX + sx, sy
+        cx_, cy_ = DCX + sx, sy
         # soft spines first (behind body)
         for a in range(0, 360, 9):
             ca, sa = math.cos(math.radians(a + rnd.randint(-3, 3))), math.sin(math.radians(a))
@@ -159,12 +205,12 @@ def draw_rambutan(d, rnd):
         hl = int(r * 0.42)
         d.ellipse([cx_ - hl - r * 0.3, cy_ - hl - r * 0.35, cx_ + hl * 0.2, cy_ + hl * 0.1], fill=(242, 96, 92))
     # stem branch connecting the cluster
-    d.line([(CX - 60, CY - 470), (CX + 120, CY - 520)], fill=(110, 78, 44), width=22)
+    d.line([(DCX - 60, DCY - 470), (DCX + 120, DCY - 520)], fill=(110, 78, 44), width=22)
 
 
 def draw_dragonfruit(d, rnd):
     c1, c2 = FRUITS["frutta-drago"]
-    cx_, cy_, rx, ry = CX - 40, CY + 30, 300, 470
+    cx_, cy_, rx, ry = DCX - 40, DCY + 30, 300, 470
     # recurved green scales (drawn behind + around the body)
     def scale(px, py, ang, ln, col):
         a = math.radians(ang)
@@ -190,7 +236,7 @@ def draw_dragonfruit(d, rnd):
         scale(cx_ + sx, cy_ + sy, ang, ln, (112, 176, 76))
         scale(cx_ + sx * 0.94, cy_ + sy * 0.94, ang, ln * 0.72, (146, 200, 98))
     # small companion fruit
-    c2x, c2y = CX + 300, CY + 430
+    c2x, c2y = DCX + 300, DCY + 430
     d.ellipse([c2x - 130, c2y - 200, c2x + 130, c2y + 200], fill=c2)
     d.ellipse([c2x - 112, c2y - 182, c2x + 112, c2y + 182], fill=c1)
     for ang, ln in ((-120, 110), (-40, 120), (40, 120), (120, 110), (180, 100)):
@@ -207,17 +253,18 @@ BUILDERS = {
 }
 
 
-def build(kind, out_path):
+def build(kind, out_path, mirror=False):
     rnd = random.Random(hash(kind) & 0xFFFF)
     img = new_canvas()
-    d = ImageDraw.Draw(img)
+    d = ScaledDraw(ImageDraw.Draw(img))
 
     if kind == "melone":
         net = draw_melone(d, rnd)  # draws the ball onto d, returns net overlay
         img = Image.alpha_composite(img, net)
-        d = ImageDraw.Draw(img)
         # cut wedge in front: rind + flesh + seed hollow
-        wx, wy = CX + 250, CY + 330
+        # design-space centre of the wedge (canvas is supersampled; ScaledDraw
+        # maps design coords -> canvas coords)
+        wx, wy = BASE_W // 2 + 250, BASE_H // 2 + 330
         d.pieslice([wx - 300, wy - 300, wx + 300, wy + 300], 150, 265, fill=(150, 168, 84))
         d.pieslice([wx - 282, wy - 282, wx + 282, wy + 282], 150, 265, fill=(250, 182, 96))
         d.pieslice([wx - 210, wy - 210, wx + 210, wy + 210], 150, 265, fill=(255, 214, 150))
@@ -233,19 +280,29 @@ def build(kind, out_path):
         BUILDERS[kind](d, rnd)
 
     # soften slightly, then clip everything to the centred art box
-    img = img.filter(ImageFilter.GaussianBlur(1.4))
+    img = img.filter(ImageFilter.GaussianBlur(1.4 * SS))
     box_mask = new_canvas()
     ImageDraw.Draw(box_mask).rounded_rectangle(
-        [CX - BOX_W // 2, CY - BOX_H // 2, CX + BOX_W // 2, CY + BOX_H // 2], radius=80, fill=(255, 255, 255, 255)
+        [CX - BOX_W // 2, CY - BOX_H // 2, CX + BOX_W // 2, CY + BOX_H // 2], radius=80 * SS, fill=(255, 255, 255, 255)
     )
     alpha = ImageChops.multiply(img.split()[3], box_mask.split()[3])
     img.putalpha(alpha)
 
     # ground shadow
     ds = new_canvas()
-    ImageDraw.Draw(ds).ellipse([CX - 360, CY + 690, CX + 360, CY + 770], fill=(0, 0, 0, 42))
-    ds = ds.filter(ImageFilter.GaussianBlur(22))
+    ImageDraw.Draw(ds).ellipse(
+        [CX - 360 * SS, CY + 690 * SS, CX + 360 * SS, CY + 770 * SS], fill=(0, 0, 0, 42)
+    )
+    ds = ds.filter(ImageFilter.GaussianBlur(22 * SS))
     img = Image.alpha_composite(ds, img)
+
+    # downscale with supersampling for crisp edges
+    img = img.resize((1080, 1737), Image.LANCZOS)
+
+    # "side" view = horizontally reversed composition (reads as the fruit's
+    # back side while the slider spins it in 3D)
+    if mirror:
+        img = img.transpose(Image.FLIP_LEFT_RIGHT)
 
     img.save(out_path, "WEBP", quality=92)
     print("wrote", out_path)
@@ -257,3 +314,4 @@ if __name__ == "__main__":
     os.makedirs(OUT_DIR, exist_ok=True)
     for k in FRUITS:
         build(k, os.path.join(OUT_DIR, f"fruit-{k}.webp"))
+        build(k, os.path.join(OUT_DIR, f"fruit-{k}-side.webp"), mirror=True)
