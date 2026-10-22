@@ -9,9 +9,13 @@ export type Product = {
   siteSlug: string;
   name: string;
   image: string;
-  /** Horizontally reversed view of the same fruit — cross-faded in while the
-   * slider spins the item in 3D so the "back side" reads correctly. */
+  /** Reversed view of the same fruit (yaw 180°) — kept for static contexts. */
   sideImage: string;
+  /** 24-frame turntable sprite sheet (yaw = i * 15°). The slider swaps the
+   * visible frame from the fruit's live accumulated rotateY, so hovering or
+   * dragging a fruit shows its REAL back/side geometry — not a mirrored
+   * front — exactly like the original site's interactive 3D jars. */
+  frames: string[];
   category: ProductCategory;
 };
 
@@ -23,7 +27,7 @@ export type Product = {
  * The set is repeated twice so the slider keeps a dense marquee feel and the
  * loop wraps seamlessly (same fruit images reused, no invented variants).
  */
-const tropical: Omit<Product, "image" | "sideImage">[] = [
+const tropical: Omit<Product, "image" | "sideImage" | "frames">[] = [
   { slug: "papaya", siteSlug: "papaya", name: "Papaya", category: "jams" },
   { slug: "melone", siteSlug: "melone", name: "Melon", category: "jams" },
   { slug: "canna-zucchero", siteSlug: "canna_zucchero", name: "Sugarcane", category: "creams" },
@@ -34,12 +38,16 @@ const tropical: Omit<Product, "image" | "sideImage">[] = [
 const fruitImg = (slug: string) => `/assets/agrumea/fruit-${slug}.webp`;
 /** Reversed "back side" view used during the hover spin. */
 const fruitSideImg = (slug: string) => `/assets/agrumea/fruit-${slug}-side.webp`;
+/** 24-frame turntable sprite sheet rendered by scripts/render-fruits.py. */
+const fruitFrames = (slug: string) =>
+  Array.from({ length: 24 }, (_, i) => `/assets/agrumea/fruit-${slug}-turn-${String(i).padStart(2, "0")}.webp`);
 
 /** Unique products (used by the pantry grid and product pages). */
 export const products: Product[] = tropical.map((p) => ({
   ...p,
   image: fruitImg(p.slug),
   sideImage: fruitSideImg(p.slug),
+  frames: fruitFrames(p.slug),
 }));
 
 /** Slider list: the five fruits repeated twice for a seamless, dense marquee. */

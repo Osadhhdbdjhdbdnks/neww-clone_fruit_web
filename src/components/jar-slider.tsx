@@ -20,6 +20,8 @@ import { sliderProducts } from "@/data/products";
 /* ---- constants copied from the live bundle ---- */
 const JAR_ARC_DEG = 18; // `or` — sine amplitude of the vertical arc (deg)
 const ASPECT = 1013 / 630; // `Xt` — image aspect ratio (fruit canvases match it)
+const N_FRAMES = 24; // turntable sprite frames per fruit (scripts/render-fruits.py)
+const FRAME_STEP = 360 / N_FRAMES; // yaw between consecutive frames (15°)
 const LEAN_OFFSETS = [-0.053, 0.043, -0.024, 0.057, -0.048, 0.029, -0.038, 0.053]; // `Bt`
 const CYCLE_MS = 4000; // `Gt` (xa export used as hover-cycle duration)
 const IDLE_SCALE = 0.55; // `Yt`
@@ -154,9 +156,10 @@ export function JarSlider() {
     type Item = {
       el: HTMLElement;
       img: HTMLImageElement | null;
-      /** Reversed "back side" view of the same fruit, cross-faded during the
-       * hover spin so the rotation reads as a real 3D object. */
-      side: HTMLImageElement | null;
+      /** All 24 turntable views of the same real fruit (yaw = i * 15°). The
+       * loop swaps src from the accumulated rotateY so the fruit shows its
+       * genuine back/side geometry while spinning — a true 3D interaction. */
+      frames: HTMLImageElement[];
       turn: Spring;
       lean: Spring;
       lift: Spring;
@@ -172,7 +175,7 @@ export function JarSlider() {
     const items: Item[] = itemEls.map((el) => ({
       el,
       img: el.querySelector<HTMLImageElement>("img.jar-slider__base"),
-      side: el.querySelector<HTMLImageElement>("img.jar-slider__side"),
+      frames: Array.from(el.querySelectorAll<HTMLImageElement>("img.jar-slider__frame")),
       turn: newSpring(),
       lean: newSpring(),
       lift: newSpring(),
@@ -185,11 +188,11 @@ export function JarSlider() {
       hoverDwellStart: -1,
     }));
 
-    /* accumulated absolute rotation per item (drives front/back view swap and
-       the |cos| width squeeze), plus last-frame delta bookkeeping */
+    /* accumulated absolute rotation per item (drives the turntable frame swap
+       and the |cos| width squeeze), plus last-frame delta bookkeeping */
     const turnRef = new Array<number>(items.length).fill(0);
     const prevTurn = new Array<number>(items.length).fill(0);
-    const lastFace = new Array<number>(items.length).fill(0);
+    const lastFrame = new Array<number>(items.length).fill(-1);
 
     /* ---- input state ---- */
     let target = 0; // ae — target scroll
@@ -518,25 +521,34 @@ export function JarSlider() {
         const slotNo = Math.max(0, Math.min(2, slotIdx + 1));
         const depthK = DEPTH_FACTOR[slotNo] / DEPTH_FACTOR[1];
         const turnY = a.turn.value + Ct * 360; // hover spin adds a full turn
-        /* Real-fruit 3D illusion: track the accumulated rotation so we always
-           display the view that faces the camera. The "side" image is the
-           horizontally reversed composition — i.e. the fruit's back side — so
-           it swaps in whenever rotateY points past ±90°, and both layers get
-           a width squeeze following |cos(turn)| which reads as foreshortening
-           of a solid object turning around its vertical axis. */
+        /* Real-fruit 3D interaction: the fruit carries a 24-frame turntable
+           sprite sheet rendered from its own geometry (scripts/render-fruits.
+           py). We track the accumulated rotation and continuously swap the
+           visible frame to match the current yaw, so when the item turns past
+           ±90° you see the fruit's REAL back side — stem orbiting, netting /
+           scales / stalks re-projected — never a mirrored front. A width
+           squeeze following |cos(turn)| adds foreshortening, which together
+           with the CSS rotateY gives the same interactive 3D feel the original
+           site had with its glass jars — but with actual fruit. */
         if (Math.abs(turnY - prevTurn[ne]) > 720) turnRef[ne] = turnY; // snap on jumps
         turnRef[ne] += turnY - prevTurn[ne];
         prevTurn[ne] = turnY;
         const rad = (turnRef[ne] * Math.PI) / 180;
         const cosT = Math.cos(rad);
         const sinT = Math.sin(rad);
-        const facingBack = cosT < 0;
         const widthK = 0.42 + 0.58 * Math.abs(cosT); // never fully edge-on flat
-        const showSide = facingBack ? 1 : 0;
         const edgeBlur = Math.min(1.6, Math.abs(sinT) * 0.9); // subtle sweep at 90°
-        if (lastFace[ne] !== showSide) {
-          lastFace[ne] = showSide;
-          a.el.setAttribute("data-jar-face", showSide ? "back" : "front");
+        /* pick the sprite frame matching the live yaw of this fruit */
+        const fi = Math.round((((turnRef[ne] % 360) + 360) % 360) / FRAME_STEP) % N_FRAMES;
+        if (a.frames.length && lastFrame[ne] !== fi) {
+          lastFrame[ne] = fi;
+          for (let k = 0; k < a.frames.length; k++) {
+            const fr = a.frames[k];
+            /* neighbours stay transparent-but-rendered so the browser keeps
+               them decoded — swapping frames mid-spin then costs no flicker */
+            const dist = Math.min(Math.abs(k - fi), N_FRAMES - Math.abs(k - fi));
+            fr.style.opacity = dist === 0 ? "1" : "0";
+          }
         }
         const st = a.el.style;
         /* triptych role tag drives CSS visibility (prev / active / next) */
@@ -625,31 +637,25 @@ export function JarSlider() {
                 href={`/dispensa/${p.slug.replace(/-\d+$/, "")}`}
                 aria-label={p.name}
                 data-jar-slider-item
-                data-jar-face="front"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  className="jar-slider__base"
-                  src={p.image}
-                  alt={p.name}
-                  width={995}
-                  height={1600}
-                  loading={i < 5 ? "eager" : "lazy"}
-                  decoding="async"
-                />
-                {/* reversed view — shown while the fruit spins past ±90° so the
-                    rotation reads as a real 3D object instead of a flat card */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  className="jar-slider__side"
-                  src={p.sideImage}
-                  alt=""
-                  aria-hidden="true"
-                  width={995}
-                  height={1600}
-                  loading={i < 5 ? "eager" : "lazy"}
-                  decoding="async"
-                />
+                {/* 24-frame turntable of the real fruit (yaw = i * 15°). The JS
+                    loop shows only the frame matching the live rotateY, so the
+                    fruit reveals its genuine back/side geometry while spinning
+                    — the same interactive 3D feel the original site had. */}
+                {p.frames.map((src, k) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={src}
+                    className={`jar-slider__frame${k === 0 ? " jar-slider__base" : ""}`}
+                    src={src}
+                    alt={k === 0 ? p.name : ""}
+                    aria-hidden={k === 0 ? undefined : true}
+                    width={995}
+                    height={1600}
+                    loading={i < 5 && k === 0 ? "eager" : "lazy"}
+                    decoding="async"
+                  />
+                ))}
               </a>
             ))}
           </div>
