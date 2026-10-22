@@ -385,21 +385,34 @@
 .jar-slider.is-hydrated .jar-slider__item[data-jar-role] {
   visibility: visible;
 }
-.jar-slider__item img.jar-slider__base,
-.jar-slider__item canvas.jar-slider__label {
+.jar-slider__item img.jar-slider__frame {
   height: 100%;
   inset: 0;
   pointer-events: none;
   position: absolute;
   user-select: none;
   width: 100%;
+  object-fit: contain;
+  display: block;
   transform-style: preserve-3d;
-  backface-visibility: hidden;
+  transition: opacity 0.06s linear;
+  filter: drop-shadow(0 18px 28px color-mix(in srgb, var(--color-border-brand) 22%, transparent))
+    blur(var(--jar-edge-blur, 0px));
+}
+/* SSR shows the front view only; after hydration JS lifts exactly one
+   turntable frame (matching the live rotateY) to opacity 1 per fruit. */
+.jar-slider__item img.jar-slider__base {
+  opacity: 1;
+}
+.jar-slider__item img.jar-slider__frame:not(.jar-slider__base) {
+  opacity: 0;
 }
 /* The interactive 3D rotation is applied only after hydration (the JS loop
-   writes --jar-turn-* every frame), so server and client markup match. */
-.jar-slider.is-hydrated .jar-slider__item img.jar-slider__base,
-.jar-slider.is-hydrated .jar-slider__item canvas.jar-slider__label {
+   writes --jar-turn-* every frame), so server and client markup match.
+   All frames share the same rotateY; scaleX(var(--jar-width-k)) squeezes the
+   silhouette as the fruit turns edge-on, which reads as true volume while the
+   swapped sprite frame reveals the fruit's real back/side geometry. */
+.jar-slider.is-hydrated .jar-slider__item img.jar-slider__frame {
   transform: translate3d(
       calc(var(--jar-parallax-x) * var(--jar-depth-px)),
       calc(var(--jar-parallax-y) * var(--jar-depth-px) * -0.6),
@@ -407,15 +420,8 @@
     )
     rotateX(var(--jar-turn-x))
     rotateY(var(--jar-turn-y))
-    rotateZ(var(--jar-turn-z));
-}
-.jar-slider__base {
-  object-fit: contain;
-  display: block;
-  filter: drop-shadow(0 18px 28px color-mix(in srgb, var(--color-border-brand) 22%, transparent));
-}
-.jar-slider__label {
-  mix-blend-mode: normal;
+    rotateZ(var(--jar-turn-z))
+    scaleX(var(--jar-width-k, 1));
 }
 @media (max-width: 1024px) {
   .jar-slider {

@@ -4,24 +4,24 @@ import { useEffect, useRef } from "react";
 import { sliderProducts } from "@/data/products";
 
 /**
- * Faithful re-implementation of the Agrumea Farm (Nuxt) jar slider.
- * Constants and formulas are extracted verbatim from the live bundle
- * (_nuxt/D3S2afzA.js) so the arrangement matches www.agrumeafarm.it/en:
- *  - 10 jars evenly spaced on a loop that wraps seamlessly
- *  - marquee tilted by --jar-marquee-angle (10deg)
+ * Agrumea Farm (Nuxt) fruit slider — faithful motion re-implementation of
+ * www.agrumeafarm.it/en with REAL FRUIT models instead of jars:
+ *  - 10 items evenly spaced on a loop that wraps seamlessly
+ *  - marquee tilted by --marquee-angle (10deg)
  *  - drag / wheel scrolling with inertia
- *  - rotation drives the circular text badge (--jar-circle-rotation)
- *  - mouse-hover parallax (--jar-parallax-x/y)
- *  - per-jar spring physics: lean toward the pointer, lift, pull, scale-up
- *    and brightness boost for the focused jar (the interactive 3D feel)
- *  - hover dwell triggers a full spin cycle; the label overlay image is
- *    cross-faded across the jar during the spin (canvas strip mapping,
- *    approximated here with a masked CSS crossfade)
+ *  - rotation drives the circular text badge (--circle-rotation)
+ *  - mouse-hover parallax (--parallax-x/y)
+ *  - per-item spring physics: lean toward the pointer, lift, pull, scale-up
+ *    and brightness boost for the focused fruit (the interactive 3D feel)
+ *  - hover dwell triggers a full spin cycle (the fruit rotates in 3D; there
+ *    are no paper-label overlays anymore — only the real fruit is shown)
  */
 
 /* ---- constants copied from the live bundle ---- */
 const JAR_ARC_DEG = 18; // `or` — sine amplitude of the vertical arc (deg)
-const ASPECT = 1013 / 630; // `Xt` — jar image aspect ratio
+const ASPECT = 1013 / 630; // `Xt` — image aspect ratio (fruit canvases match it)
+const N_FRAMES = 24; // turntable sprite frames per fruit (scripts/render-fruits.py)
+const FRAME_STEP = 360 / N_FRAMES; // yaw between consecutive frames (15°)
 const LEAN_OFFSETS = [-0.053, 0.043, -0.024, 0.057, -0.048, 0.029, -0.038, 0.053]; // `Bt`
 const CYCLE_MS = 4000; // `Gt` (xa export used as hover-cycle duration)
 const IDLE_SCALE = 0.55; // `Yt`
@@ -59,8 +59,6 @@ const SPIN_PULL = 16; // `Zt` px
 const GAUSS_R = 1.6; // `Xr`
 const PARALLAX_GAIN = 26; // `ea`
 const SPEED_TO_DEG = -0.012; // `Rr` desktop, `Or` mobile (-0.03)
-const FRONT_ROT = 182; // `FRONT_ROT` deg where the label faces front
-const LABEL_FADE = 1; // `gr`
 const TILT_LEFT_DEG = -20; // triptych: left jar leans ~20°, centre/right upright
 const MOUSE_TILT_DEG = 6; // pointer-driven rotateX/rotateY amplitude (±6°)
 const DEPTH_FACTOR = [26, 54, 34]; // per-slot parallax depth (px per unit pointer offset)
@@ -112,7 +110,6 @@ export function JarSlider() {
     let y = 0; // track center y relative to root
     let cosA = 1;
     let sinA = 0;
-    let L = 0; // label width factor (label img natural w/h vs jar)
 
     const measure = () => {
       const vw = window.innerWidth;
@@ -159,9 +156,10 @@ export function JarSlider() {
     type Item = {
       el: HTMLElement;
       img: HTMLImageElement | null;
-      canvas: HTMLCanvasElement | null;
-      ctx2d: CanvasRenderingContext2D | null;
-      labelImg: HTMLImageElement | null;
+      /** All 24 turntable views of the same real fruit (yaw = i * 15°). The
+       * loop swaps src from the accumulated rotateY so the fruit shows its
+       * genuine back/side geometry while spinning — a true 3D interaction. */
+      frames: HTMLImageElement[];
       turn: Spring;
       lean: Spring;
       lift: Spring;
@@ -172,57 +170,29 @@ export function JarSlider() {
       isPointerOver: boolean;
       pointerEnterTime: number;
       hoverDwellStart: number;
-      renderedOffset: number;
-      needsRender: boolean;
     };
 
-    const items: Item[] = itemEls.map((el) => {
-      const canvas = el.querySelector<HTMLCanvasElement>("canvas.jar-slider__label");
-      return {
-        el,
-        img: el.querySelector<HTMLImageElement>("img.jar-slider__base"),
-        canvas,
-        ctx2d: canvas?.getContext("2d") ?? null,
-        labelImg: null,
-        turn: newSpring(),
-        lean: newSpring(),
-        lift: newSpring(),
-        pullX: newSpring(),
-        pullY: newSpring(),
-        cycleStart: -1,
-        hoverQueued: false,
-        isPointerOver: false,
-        pointerEnterTime: -1,
-        hoverDwellStart: -1,
-        renderedOffset: NaN,
-        needsRender: true,
-      };
-    });
+    const items: Item[] = itemEls.map((el) => ({
+      el,
+      img: el.querySelector<HTMLImageElement>("img.jar-slider__base"),
+      frames: Array.from(el.querySelectorAll<HTMLImageElement>("img.jar-slider__frame")),
+      turn: newSpring(),
+      lean: newSpring(),
+      lift: newSpring(),
+      pullX: newSpring(),
+      pullY: newSpring(),
+      cycleStart: -1,
+      hoverQueued: false,
+      isPointerOver: false,
+      pointerEnterTime: -1,
+      hoverDwellStart: -1,
+    }));
 
-    /* load label images; derive the wrap-around gap in px like the shader's GAP_LABEL */
-    const labelUrls = Array.from(new Set(itemEls.map((el) => el.dataset.label ?? ""))).filter(Boolean);
-    void Promise.all(
-      labelUrls.map(
-        (src) =>
-          new Promise<void>((resolve) => {
-            const im = new Image();
-            im.onload = () => resolve();
-            im.onerror = () => resolve();
-            im.src = src;
-          }),
-      ),
-    ).then(() => {
-      const first = labelUrls[0];
-      if (first) {
-        const probe = new Image();
-        probe.onload = () => {
-          if (probe.naturalWidth && probe.naturalHeight) {
-            L = (probe.naturalWidth / probe.naturalHeight) * ASPECT;
-          }
-        };
-        probe.src = first;
-      }
-    });
+    /* accumulated absolute rotation per item (drives the turntable frame swap
+       and the |cos| width squeeze), plus last-frame delta bookkeeping */
+    const turnRef = new Array<number>(items.length).fill(0);
+    const prevTurn = new Array<number>(items.length).fill(0);
+    const lastFrame = new Array<number>(items.length).fill(-1);
 
     /* ---- input state ---- */
     let target = 0; // ae — target scroll
@@ -544,13 +514,42 @@ export function JarSlider() {
         const La = yt * ha * streakScale * (1 + a.lift.value);
 
         /* per-frame interactive 3D: expose the spring values as CSS custom
-           properties so the base image and label canvas rotate in real 3D
-           space around the jar's cylinder axis (perspective on the item).
-           Each slot carries its own depth coefficient so the three visible
-           jars parallax at different rates while the pointer moves. */
+           properties so the fruit image rotates in real 3D space around its
+           vertical axis (perspective on the item). Each slot carries its own
+           depth coefficient so the three visible fruits parallax at different
+           rates while the pointer moves. */
         const slotNo = Math.max(0, Math.min(2, slotIdx + 1));
         const depthK = DEPTH_FACTOR[slotNo] / DEPTH_FACTOR[1];
         const turnY = a.turn.value + Ct * 360; // hover spin adds a full turn
+        /* Real-fruit 3D interaction: the fruit carries a 24-frame turntable
+           sprite sheet rendered from its own geometry (scripts/render-fruits.
+           py). We track the accumulated rotation and continuously swap the
+           visible frame to match the current yaw, so when the item turns past
+           ±90° you see the fruit's REAL back side — stem orbiting, netting /
+           scales / stalks re-projected — never a mirrored front. A width
+           squeeze following |cos(turn)| adds foreshortening, which together
+           with the CSS rotateY gives the same interactive 3D feel the original
+           site had with its glass jars — but with actual fruit. */
+        if (Math.abs(turnY - prevTurn[ne]) > 720) turnRef[ne] = turnY; // snap on jumps
+        turnRef[ne] += turnY - prevTurn[ne];
+        prevTurn[ne] = turnY;
+        const rad = (turnRef[ne] * Math.PI) / 180;
+        const cosT = Math.cos(rad);
+        const sinT = Math.sin(rad);
+        const widthK = 0.42 + 0.58 * Math.abs(cosT); // never fully edge-on flat
+        const edgeBlur = Math.min(1.6, Math.abs(sinT) * 0.9); // subtle sweep at 90°
+        /* pick the sprite frame matching the live yaw of this fruit */
+        const fi = Math.round((((turnRef[ne] % 360) + 360) % 360) / FRAME_STEP) % N_FRAMES;
+        if (a.frames.length && lastFrame[ne] !== fi) {
+          lastFrame[ne] = fi;
+          for (let k = 0; k < a.frames.length; k++) {
+            const fr = a.frames[k];
+            /* neighbours stay transparent-but-rendered so the browser keeps
+               them decoded — swapping frames mid-spin then costs no flicker */
+            const dist = Math.min(Math.abs(k - fi), N_FRAMES - Math.abs(k - fi));
+            fr.style.opacity = dist === 0 ? "1" : "0";
+          }
+        }
         const st = a.el.style;
         /* triptych role tag drives CSS visibility (prev / active / next) */
         const roleAttr = onStage ? (slotIdx === -1 ? "prev" : slotIdx === 0 ? "active" : "next") : "";
@@ -564,70 +563,19 @@ export function JarSlider() {
         st.setProperty("--jar-turn-z", `${(g * MOUSE_TILT_DEG * 0.45 * depthK).toFixed(3)}deg`);
         st.setProperty("--jar-depth", `${(Tt * 60 + E * 8 * depthK).toFixed(2)}px`);
         st.setProperty("--jar-depth-px", `${DEPTH_FACTOR[slotNo]}px`);
+        /* foreshortening of the turning fruit (both views share it) */
+        st.setProperty("--jar-width-k", widthK.toFixed(4));
+        st.setProperty("--jar-edge-blur", `${edgeBlur.toFixed(2)}px`);
         st.transform = `translate(${va}px, ${ya}px) rotate(${_a + a.lean.value}deg) scale(${La})`;
         st.opacity = `${pa}`;
 
         const blurCap = vw <= 480 ? BLUR_MAX_MOBILE : BLUR_MAX;
         const Ea = Math.min(blurCap, Ye * Ye * 1) + streakPull;
         a.el.style.filter = `brightness(${da}) blur(${Ea.toFixed(2)}px)`;
-
-        /* label wrap-around offset (shader uOffset equivalent) */
-        const wa = Pe * LABEL_FADE;
-        const ba = Math.round(a.turn.value / 360 / 0.0005) * 0.0005;
-        const He = FRONT_ROT / 360 - Ct - wa - ba;
-        const Ta = fe + u > 0 && fe - u < vw; // on-screen
-
-        /* paint label strip onto canvas with the same seam-gap math */
-        if (a.ctx2d && a.canvas && a.img) {
-          const cw = Math.round(u * devicePixelRatio);
-          const ch = Math.round(R * devicePixelRatio);
-          if (a.canvas.width !== cw || a.canvas.height !== ch) {
-            a.canvas.width = cw;
-            a.canvas.height = ch;
-          }
-          if (a.needsRender || (Ta && a.renderedOffset !== He)) {
-            const ctx = a.ctx2d;
-            ctx.clearRect(0, 0, cw, ch);
-            const labelSrc = a.labelImg ?? undefined;
-            if (labelSrc && labelSrc.complete && labelSrc.naturalWidth) {
-              // Circumference of the virtual cylinder in canvas px (matches
-              // the live site's LatheGeometry: width factor L over jar box).
-              const W = u * (L || 1.45) * devicePixelRatio;
-              const frac = ((He % 1) + 1) % 1;
-              const visW = cw;
-              let cursor = 0;
-              while (cursor < visW) {
-                const srcX = frac * W + cursor;
-                const wrapped = ((srcX % W) + W) % W;
-                const take = Math.min(visW - cursor, W - wrapped);
-                ctx.drawImage(labelSrc, wrapped, 0, take, labelSrc.naturalHeight, cursor, 0, take, ch);
-                cursor += take;
-              }
-              /* mask to the jar silhouette using the base image alpha */
-              ctx.globalCompositeOperation = "destination-in";
-              ctx.drawImage(a.img, 0, 0, a.img.naturalWidth, a.img.naturalHeight, 0, 0, cw, ch);
-              ctx.globalCompositeOperation = "source-over";
-            }
-            a.renderedOffset = He;
-            a.needsRender = false;
-          }
-        }
       });
 
       raf = requestAnimationFrame(frame);
     };
-    /* preload label elements for canvas drawing */
-    items.forEach((a) => {
-      const src = a.el.dataset.label;
-      if (!src) return;
-      const im = new Image();
-      im.decoding = "async";
-      im.onload = () => {
-        a.labelImg = im;
-        a.needsRender = true;
-      };
-      im.src = src;
-    });
 
     raf = requestAnimationFrame(frame);
 
@@ -689,20 +637,25 @@ export function JarSlider() {
                 href={`/dispensa/${p.slug.replace(/-\d+$/, "")}`}
                 aria-label={p.name}
                 data-jar-slider-item
-                data-jar={p.image}
-                data-label={p.label}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  className="jar-slider__base"
-                  src={p.image}
-                  alt={p.name}
-                  width={995}
-                  height={1600}
-                  loading={i < 5 ? "eager" : "lazy"}
-                  decoding="async"
-                />
-                <canvas className="jar-slider__label" aria-hidden="true" />
+                {/* 24-frame turntable of the real fruit (yaw = i * 15°). The JS
+                    loop shows only the frame matching the live rotateY, so the
+                    fruit reveals its genuine back/side geometry while spinning
+                    — the same interactive 3D feel the original site had. */}
+                {p.frames.map((src, k) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={src}
+                    className={`jar-slider__frame${k === 0 ? " jar-slider__base" : ""}`}
+                    src={src}
+                    alt={k === 0 ? p.name : ""}
+                    aria-hidden={k === 0 ? undefined : true}
+                    width={995}
+                    height={1600}
+                    loading={i < 5 && k === 0 ? "eager" : "lazy"}
+                    decoding="async"
+                  />
+                ))}
               </a>
             ))}
           </div>
