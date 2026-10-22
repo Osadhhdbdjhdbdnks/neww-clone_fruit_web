@@ -1,5 +1,6 @@
-/* Products extracted from the live jar slider at www.agrumeafarm.it/en.
-   Images were saved locally into public/assets/agrumea during cloning. */
+/* Products inspired by the slider at www.agrumeafarm.it/en.
+   Visual assets are the REAL fruits themselves (no jars): rendered by
+   scripts/generate-fruits.py into public/assets/agrumea (fruit-<slug>.webp). */
 export type ProductCategory = "jams" | "creams" | "savoury";
 
 export type Product = {
@@ -8,37 +9,34 @@ export type Product = {
   siteSlug: string;
   name: string;
   image: string;
-  /** Label overlay artwork shown when the jar spins on hover. */
-  label: string;
   category: ProductCategory;
 };
 
 /**
  * Tropical fruit line-up (papaya, melon, sugarcane, rambutan, dragon fruit).
- * Each jar model shows its real fruit inside the glass — rendered by
- * scripts/generate-jars.py into public/assets/agrumea (jar-<slug>.webp).
+ * Each slider item shows the actual fruit — papaya halves with seeds, netted
+ * cantaloupe with a wedge, jointed sugarcane stalks, spine-covered rambutan
+ * cluster and magenta dragon fruit with recurved green scales.
  * The set is repeated twice so the slider keeps a dense marquee feel and the
- * loop wraps seamlessly (same jar images reused, no invented variants).
+ * loop wraps seamlessly (same fruit images reused, no invented variants).
  */
-const tropical: Omit<Product, "image" | "label">[] = [
-  { slug: "papaya", siteSlug: "papaya", name: "Papaya Jam", category: "jams" },
-  { slug: "melone", siteSlug: "melone", name: "Melon Jam", category: "jams" },
-  { slug: "canna-zucchero", siteSlug: "canna_zucchero", name: "Sugarcane Syrup", category: "creams" },
-  { slug: "rambutan", siteSlug: "rambutan", name: "Rambutan Jam", category: "jams" },
-  { slug: "frutta-drago", siteSlug: "frutta_drago", name: "Dragon Fruit Jam", category: "jams" },
+const tropical: Omit<Product, "image">[] = [
+  { slug: "papaya", siteSlug: "papaya", name: "Papaya", category: "jams" },
+  { slug: "melone", siteSlug: "melone", name: "Melon", category: "jams" },
+  { slug: "canna-zucchero", siteSlug: "canna_zucchero", name: "Sugarcane", category: "creams" },
+  { slug: "rambutan", siteSlug: "rambutan", name: "Rambutan", category: "jams" },
+  { slug: "frutta-drago", siteSlug: "frutta_drago", name: "Dragon Fruit", category: "jams" },
 ];
 
-const jarImg = (slug: string) => `/assets/agrumea/jar-${slug}.webp`;
-const labelImg = (slug: string) => `/assets/agrumea/label-${slug}.webp`;
+const fruitImg = (slug: string) => `/assets/agrumea/fruit-${slug}.webp`;
 
 /** Unique products (used by the pantry grid and product pages). */
 export const products: Product[] = tropical.map((p) => ({
   ...p,
-  image: jarImg(p.slug),
-  label: labelImg(p.slug),
+  image: fruitImg(p.slug),
 }));
 
-/** Slider list: the five jars repeated twice for a seamless, dense marquee. */
+/** Slider list: the five fruits repeated twice for a seamless, dense marquee. */
 export const sliderProducts: Product[] = [0, 1].flatMap((round) =>
   products.map((p) => ({
     ...p,

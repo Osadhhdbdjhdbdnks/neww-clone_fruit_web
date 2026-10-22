@@ -1,0 +1,21 @@
+1:"$Sreact.fragment"
+2:I[61966,["/_next/static/chunks/455lnqfh1ezk3.js","/_next/static/chunks/05yhws_qqv818.js"],"JarSlider"]
+3:I[97367,["/_next/static/chunks/455lnqfh1ezk3.js"],"OutletBoundary"]
+4:"$Sreact.suspense"
+8:I[97367,["/_next/static/chunks/455lnqfh1ezk3.js"],"ViewportBoundary"]
+9:I[97367,["/_next/static/chunks/455lnqfh1ezk3.js"],"MetadataBoundary"]
+a:I[27201,["/_next/static/chunks/455lnqfh1ezk3.js"],"IconMark"]
+c:I[3020,["/_next/static/chunks/455lnqfh1ezk3.js"],"SiteHeader"]
+d:I[39756,["/_next/static/chunks/455lnqfh1ezk3.js"],"default"]
+e:I[37457,["/_next/static/chunks/455lnqfh1ezk3.js"],"default"]
+:HL["/_next/static/chunks/0j-b6nlhbb564.css","style"]
+7:X
+0:{"buildId":"76iYY-Xm5-9eMOA0j1yVG","data":[{"rsc":["$","$1","c",{"children":[["$","$L2",null,{}],[["$","script","script-0",{"src":"/_next/static/chunks/05yhws_qqv818.js","async":true}]],["$","$L3",null,{"children":["$","$4",null,{"name":"Next.MetadataOutlet","children":"$@5"}]}]]}],"isPartial":"$@6","staleTime":"$7","varyParams":null},{"rsc":["$","$1","h",{"children":[null,["$","$L8",null,{"children":[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]}],["$","div",null,{"hidden":true,"children":["$","$L9",null,{"children":["$","$4",null,{"name":"Next.Metadata","children":[["$","title","0",{"children":"Agrumea Farm | Jams, pestos and flavours of Sicily"}],["$","meta","1",{"name":"description","content":"Agrumea Farm transforms Sicilian citrus fruits, other fruits and produce into artisanal jams, pestos and preserves with an authentic flavour"}],["$","link","2",{"rel":"icon","href":"/favicon.ico?favicon.2vob68tjqpejf.ico","sizes":"256x256","type":"image/x-icon"}],["$","$La","3",{}]]}]}]}],null]}],"isPartial":"$@b","staleTime":"$7","varyParams":null},{"rsc":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/0j-b6nlhbb564.css","precedence":"next"}],["$","script","script-0",{"src":"/_next/static/chunks/455lnqfh1ezk3.js","async":true}]],["$","html",null,{"lang":"en","className":"h-full antialiased","children":["$","body",null,{"className":"min-h-full flex flex-col","children":[["$","a",null,{"href":"#site-main","className":"visually-hidden","children":"Skip to content"}],["$","$Lc",null,{}],["$","main",null,{"id":"site-main","className":"site-main flex-1","children":["$","$Ld",null,{"parallelRouterKey":"children","template":["$","$Le",null,{}],"notFound":[[["$","title",null,{"children":"404: This page could not be found."}],["$","div",null,{"style":{"fontFamily":"system-ui,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif,\"Apple Color Emoji\",\"Segoe UI Emoji\"","height":"100vh","textAlign":"center","display":"flex","flexDirection":"column","alignItems":"center","justifyContent":"center"},"children":["$","div",null,{"children":[["$","style",null,{"dangerouslySetInnerHTML":{"__html":"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}"}}],["$","h1",null,{"className":"next-error-h1","style":{"display":"inline-block","margin":"0 20px 0 0","padding":"0 23px 0 0","fontSize":24,"fontWeight":500,"verticalAlign":"top","lineHeight":"49px"},"children":404}],["$","div",null,{"style":{"display":"inline-block"},"children":["$","h2",null,{"style":{"fontSize":14,"fontWeight":400,"lineHeight":"49px","margin":0},"children":"This page could not be found."}]}]]}]}]],[]]}]}],["$","footer",null,{"className":"site-shell__legal","children":["$","div",null,{"className":"site-legal","children":["$","a",null,{"href":"/privacy","className":"site-legal__link","children":"Privacy & Cookies"}]}]}]]}]}]]}],"isPartial":"$@f","staleTime":"$7","varyParams":null}],"isUpgradeableISRFallback":false,"a":"$@10","rootVaryParams":null,"needsRuntimeRequest":"$@11"}
+5:null
+7:300
+11:true
+7:C
+10:0
+b:"$undefined"
+f:"$undefined"
+6:"$undefined"
