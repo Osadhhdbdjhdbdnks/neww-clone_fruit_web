@@ -15,8 +15,10 @@ export type Product = {
 
 /**
  * Tropical fruit line-up (papaya, melon, sugarcane, rambutan, dragon fruit).
- * Jar artwork is procedurally tinted from the original transparent silhouettes;
- * each product repeats the set twice so the slider keeps a dense marquee feel.
+ * Each jar model shows its real fruit inside the glass — rendered by
+ * scripts/generate-jars.py into public/assets/agrumea (jar-<slug>.webp).
+ * The set is repeated twice so the slider keeps a dense marquee feel and the
+ * loop wraps seamlessly (same jar images reused, no invented variants).
  */
 const tropical: Omit<Product, "image" | "label">[] = [
   { slug: "papaya", siteSlug: "papaya", name: "Papaya Jam", category: "jams" },
@@ -26,17 +28,21 @@ const tropical: Omit<Product, "image" | "label">[] = [
   { slug: "frutta-drago", siteSlug: "frutta_drago", name: "Dragon Fruit Jam", category: "jams" },
 ];
 
-const baseSlug = (slug: string) => slug.replace(/-\d+$/, "");
-const jarImg = (slug: string) => `/assets/agrumea/jar-${baseSlug(slug)}.webp`;
-const labelImg = (slug: string) => `/assets/agrumea/label-${baseSlug(slug)}.webp`;
+const jarImg = (slug: string) => `/assets/agrumea/jar-${slug}.webp`;
+const labelImg = (slug: string) => `/assets/agrumea/label-${slug}.webp`;
 
-export const products: Product[] = [0, 1].flatMap((round) =>
-  tropical.map((p) => ({
+/** Unique products (used by the pantry grid and product pages). */
+export const products: Product[] = tropical.map((p) => ({
+  ...p,
+  image: jarImg(p.slug),
+  label: labelImg(p.slug),
+}));
+
+/** Slider list: the five jars repeated twice for a seamless, dense marquee. */
+export const sliderProducts: Product[] = [0, 1].flatMap((round) =>
+  products.map((p) => ({
     ...p,
     slug: round === 0 ? p.slug : `${p.slug}-${round + 1}`,
-    name: round === 0 ? p.name : `${p.name} — Reserve`,
-    image: jarImg(p.slug),
-    label: labelImg(p.slug),
   })),
 );
 

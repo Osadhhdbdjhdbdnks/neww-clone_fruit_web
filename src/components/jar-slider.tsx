@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { products } from "@/data/products";
+import { sliderProducts } from "@/data/products";
 
 /**
  * Faithful re-implementation of the Agrumea Farm (Nuxt) jar slider.
@@ -682,11 +682,11 @@ export function JarSlider() {
       <div className="jar-slider__wrapper" data-jar-slider-wrap>
         <div className="jar-slider__marquee">
           <div className="jar-slider__track" data-jar-slider-track>
-            {products.map((p, i) => (
+            {sliderProducts.map((p, i) => (
               <a
                 key={p.slug}
                 className="jar-slider__item"
-                href={`/dispensa/${p.slug}`}
+                href={`/dispensa/${p.slug.replace(/-\d+$/, "")}`}
                 aria-label={p.name}
                 data-jar-slider-item
                 data-jar={p.image}
