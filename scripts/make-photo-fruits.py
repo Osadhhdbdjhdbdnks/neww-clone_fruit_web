@@ -26,7 +26,7 @@ try:
 except Exception as e:  # pragma: no cover
     print("rembg missing:", e); sys.exit(1)
 
-SS = 2
+SS = 1
 BASE_W, BASE_H = 1080, 1737
 W, H = BASE_W * SS, BASE_H * SS
 CX, CY = W // 2, int(H * 0.50)
@@ -50,11 +50,15 @@ def cutout(photo_path, cache_dir="scripts/photos/cutouts"):
     dest = os.path.join(cache_dir, stem + ".png")
     if os.path.exists(dest):
         return Image.open(dest).convert("RGBA")
+    small_dir = os.path.join(PHOTO_DIR, "small")
+    small_path = os.path.join(small_dir, stem + os.path.splitext(photo_path)[1])
+    if os.path.exists(small_path):
+        photo_path = small_path  # pre-downscaled copy keeps rembg cheap
     img = Image.open(photo_path).convert("RGB")
     img = ImageOps.exif_transpose(img)
-    # keep memory bounded (container RAM is limited): max 1024 px wide
-    if img.width > 768:
-        img = img.resize((768, int(img.height * 768 / img.width)), Image.LANCZOS)
+    # keep memory bounded (container RAM is limited): max 512 px wide
+    if img.width > 512:
+        img = img.resize((512, int(img.height * 512 / img.width)), Image.LANCZOS)
     os.environ.setdefault("OMP_NUM_THREADS", "1")
     try:
         import onnxruntime as ort

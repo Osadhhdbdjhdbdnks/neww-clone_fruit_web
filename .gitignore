@@ -2,3 +2,6 @@
 out/
 tsconfig.tsbuildinfo
 node_modules/
+scripts/photos/small/*.jpg
+scripts/photos/cutouts/
+scripts/photos/*.jpg
